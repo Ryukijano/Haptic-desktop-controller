@@ -9,6 +9,8 @@ export class MotionTracker {
   private frameBuffer: Float32Array[] = [];
   private readonly BUFFER_SIZE = 5;
   private readonly MOTION_THRESHOLD = 5; // Minimum motion to register
+  private readonly SUBTLE_THRESHOLD = 10; // Threshold for subtle motion
+  private readonly ROTATION_THRESHOLD = 30; // Threshold for rotation detection
 
   /**
    * Compute optical flow lite between consecutive frames
@@ -64,14 +66,14 @@ export class MotionTracker {
   private classifyGesture(dx: number, dy: number, mag: number): Gesture {
     const angle = Math.atan2(dy, dx) * (180 / Math.PI);
     
-    if (mag < 10) return 'subtle';
+    if (mag < this.SUBTLE_THRESHOLD) return 'subtle';
     if (Math.abs(angle) < 45) return 'right';
     if (Math.abs(angle - 180) < 45 || Math.abs(angle + 180) < 45) return 'left';
     if (angle > 45 && angle < 135) return 'down';
     if (angle < -45 && angle > -135) return 'up';
     
     // Rotational detection based on magnitude
-    if (mag > 30) {
+    if (mag > this.ROTATION_THRESHOLD) {
       // Determine rotation direction based on angle
       return angle > 0 ? 'rotate_cw' : 'rotate_ccw';
     }

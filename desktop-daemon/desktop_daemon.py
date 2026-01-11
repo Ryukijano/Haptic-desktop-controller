@@ -38,6 +38,8 @@ class DesktopController:
     """Controls desktop using OS-level APIs via pynput."""
     
     def __init__(self, ws_host: str = "localhost", ws_port: int = 3000):
+        self.ws_host = ws_host
+        self.ws_port = ws_port
         self.ws_uri = f"ws://{ws_host}:{ws_port}/socket.io/?EIO=4&transport=websocket"
         self.system = platform.system()
         
@@ -57,7 +59,7 @@ class DesktopController:
             # Using a simpler WebSocket approach for compatibility
             async with connect(
                 self.ws_uri,
-                additional_headers={"Origin": f"http://localhost:{3000}"}
+                additional_headers={"Origin": f"http://{self.ws_host}:{self.ws_port}"}
             ) as websocket:
                 print("✓ Connected to Haptic Desktop Controller")
                 print(f"  System: {self.system}")
@@ -200,23 +202,33 @@ class DesktopController:
         print(f"  Tab switched: {'next' if direction > 0 else 'previous'}")
     
     def adjust_brightness(self, steps: int):
-        """Adjust screen brightness (macOS only for now)."""
+        """Adjust screen brightness.
+        
+        Note: Brightness control varies significantly by OS and may require
+        additional system permissions or not be available via keyboard simulation.
+        """
         if not PYNPUT_AVAILABLE:
             print(f"  [SIM] Adjusting brightness by {steps} steps")
             return
             
         if self.system == "Darwin":
-            # macOS brightness keys
-            # Note: These may not work on all keyboards
-            for _ in range(abs(steps)):
-                if steps > 0:
-                    # Brightness up key code may vary
-                    pass
-                else:
-                    pass
-            print(f"  Brightness adjusted: {'+' if steps > 0 else ''}{steps}")
+            # macOS: Use brightness keys if available
+            # Note: This requires keyboard with F1/F2 brightness keys
+            try:
+                # macOS uses special key codes for brightness
+                # These are typically handled by the system directly
+                print(f"  Brightness adjustment requested: {'+' if steps > 0 else ''}{steps}")
+                print("  Note: macOS brightness requires F1/F2 keys or external tools")
+            except Exception as e:
+                print(f"  Brightness control error: {e}")
+        elif self.system == "Windows":
+            # Windows: Use WMI or PowerShell (outside pynput scope)
+            print(f"  Brightness adjustment requested: {'+' if steps > 0 else ''}{steps}")
+            print("  Note: Windows brightness requires WMI or external tools")
         else:
-            print(f"  Brightness control not available on {self.system}")
+            # Linux: Use xbacklight or similar (outside pynput scope)
+            print(f"  Brightness adjustment requested: {'+' if steps > 0 else ''}{steps}")
+            print("  Note: Linux brightness requires xbacklight or similar tools")
     
     def click(self):
         """Perform mouse click."""

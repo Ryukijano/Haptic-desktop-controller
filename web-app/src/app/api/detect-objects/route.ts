@@ -100,8 +100,8 @@ export async function POST(request: NextRequest) {
         }));
 
       return NextResponse.json({ objects: validatedObjects });
-    } catch {
-      console.error('Failed to parse Gemini response:', cleanedJSON);
+    } catch (parseError) {
+      console.error('Failed to parse Gemini response:', cleanedJSON, parseError);
       return NextResponse.json(
         { error: 'Failed to parse object detection response' },
         { status: 500 }

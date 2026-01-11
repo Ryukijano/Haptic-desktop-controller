@@ -100,9 +100,9 @@ export async function POST(request: NextRequest) {
         };
 
         return NextResponse.json(interpretation);
-      } catch {
+      } catch (geminiError) {
         // Fall back to basic interpretation if Gemini fails
-        console.log('Gemini interpretation failed, using basic logic');
+        console.log('Gemini interpretation failed, using basic logic:', geminiError);
       }
     }
 
