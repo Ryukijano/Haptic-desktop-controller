@@ -1,24 +1,22 @@
 #!/usr/bin/env python3
 """
 Haptic Desktop Controller Daemon
-WebSocket client for receiving gesture commands and executing OS controls
+Socket.io client for receiving gesture commands and executing OS controls
 Supports macOS and Linux
 """
 
-import asyncio
-import json
 import logging
 import platform
 import sys
 from typing import Optional
 
 try:
-    import websockets
+    import socketio
     from pynput.keyboard import Key, Controller as KeyboardController
     from pynput.mouse import Controller as MouseController
 except ImportError:
     print("Error: Required packages not installed.")
-    print("Install with: pip install websockets pynput")
+    print("Install with: pip install python-socketio[client] pynput")
     sys.exit(1)
 
 # Configure logging
@@ -93,72 +91,62 @@ class GestureController:
             logger.warning(f"Volume control not supported on {self.system}")
 
 
-class WebSocketClient:
-    """WebSocket client for receiving gesture commands"""
+class SocketIOClient:
+    """Socket.io client for receiving gesture commands"""
     
-    def __init__(self, uri: str = "ws://localhost:3000/ws"):
-        self.uri = uri
+    def __init__(self, url: str = "http://localhost:3000"):
+        self.url = url
         self.controller = GestureController()
-        self.websocket: Optional[websockets.WebSocketClientProtocol] = None
+        self.sio = socketio.Client(logger=False, engineio_logger=False)
+        
+        # Register event handlers
+        @self.sio.event
+        def connect():
+            logger.info("Connected to Socket.io server")
+        
+        @self.sio.event
+        def disconnect():
+            logger.warning("Disconnected from Socket.io server")
+        
+        @self.sio.event
+        def gesture(data):
+            """Handle incoming gesture events"""
+            try:
+                gesture_name = data.get('gesture')
+                if gesture_name:
+                    logger.debug(f"Received gesture: {gesture_name}")
+                    self.controller.execute_gesture(gesture_name)
+            except Exception as e:
+                logger.error(f"Error handling gesture: {e}")
     
-    async def connect(self) -> None:
-        """Connect to WebSocket server and listen for messages"""
+    def connect(self) -> None:
+        """Connect to Socket.io server"""
         retry_delay = 5
         
         while True:
             try:
-                logger.info(f"Connecting to {self.uri}...")
-                async with websockets.connect(self.uri) as websocket:
-                    self.websocket = websocket
-                    logger.info("Connected to WebSocket server")
-                    
-                    await self._listen()
-                    
-            except websockets.exceptions.WebSocketException as e:
-                logger.error(f"WebSocket error: {e}")
-            except ConnectionRefusedError:
-                logger.warning(f"Connection refused. Retrying in {retry_delay}s...")
+                logger.info(f"Connecting to {self.url}...")
+                self.sio.connect(self.url, wait_timeout=10)
+                logger.info("Connected successfully")
+                self.sio.wait()
+                
             except Exception as e:
-                logger.error(f"Unexpected error: {e}")
-            
-            # Wait before reconnecting
-            await asyncio.sleep(retry_delay)
-    
-    async def _listen(self) -> None:
-        """Listen for incoming messages"""
-        try:
-            async for message in self.websocket:
-                await self._handle_message(message)
-        except websockets.exceptions.ConnectionClosed:
-            logger.warning("Connection closed")
-    
-    async def _handle_message(self, message: str) -> None:
-        """Handle incoming WebSocket message"""
-        try:
-            data = json.loads(message)
-            
-            if data.get("type") == "gesture":
-                gesture = data.get("gesture")
-                if gesture:
-                    logger.debug(f"Received gesture: {gesture}")
-                    self.controller.execute_gesture(gesture)
-            
-        except json.JSONDecodeError:
-            logger.error(f"Invalid JSON message: {message}")
-        except Exception as e:
-            logger.error(f"Error handling message: {e}")
+                logger.error(f"Connection error: {e}")
+                logger.info(f"Retrying in {retry_delay} seconds...")
+                import time
+                time.sleep(retry_delay)
 
 
-async def main():
+def main():
     """Main entry point"""
     # Parse command line arguments
     import argparse
     
     parser = argparse.ArgumentParser(description="Haptic Desktop Controller Daemon")
     parser.add_argument(
-        "--uri",
-        default="ws://localhost:3000/ws",
-        help="WebSocket server URI (default: ws://localhost:3000/ws)"
+        "--url",
+        default="http://localhost:3000",
+        help="Socket.io server URL (default: http://localhost:3000)"
     )
     parser.add_argument(
         "--debug",
@@ -174,16 +162,16 @@ async def main():
     logger.info("Starting Haptic Desktop Controller Daemon")
     logger.info(f"Platform: {platform.system()} {platform.release()}")
     
-    client = WebSocketClient(uri=args.uri)
+    client = SocketIOClient(url=args.url)
     
     try:
-        await client.connect()
+        client.connect()
     except KeyboardInterrupt:
         logger.info("Shutting down...")
 
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        main()
     except KeyboardInterrupt:
         logger.info("Daemon stopped")

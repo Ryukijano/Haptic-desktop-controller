@@ -2,6 +2,7 @@
 
 import { useRef, useEffect, useState, useCallback } from "react";
 import Webcam from "react-webcam";
+import { io, Socket } from "socket.io-client";
 
 interface VideoStreamProps {
   onGestureDetected: (gesture: string) => void;
@@ -18,9 +19,11 @@ interface DetectedObject {
 export default function VideoStream({ onGestureDetected, registeredObjects }: VideoStreamProps) {
   const webcamRef = useRef<Webcam>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const socketRef = useRef<Socket | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
   const [fps, setFps] = useState(0);
+  const [isSocketConnected, setIsSocketConnected] = useState(false);
 
   const captureAndDetect = useCallback(async () => {
     if (!webcamRef.current || isProcessing) return;
@@ -54,6 +57,14 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
             const gesture = interpretGesture(data.objects);
             if (gesture) {
               onGestureDetected(gesture);
+              // Send gesture to desktop daemon via Socket.io
+              if (socketRef.current?.connected) {
+                socketRef.current.emit('gesture', {
+                  type: 'gesture',
+                  gesture: gesture,
+                  timestamp: Date.now()
+                });
+              }
             }
           }
         }
@@ -85,6 +96,25 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
     
     return "idle";
   };
+
+  // Initialize Socket.io connection
+  useEffect(() => {
+    socketRef.current = io();
+    
+    socketRef.current.on('connect', () => {
+      console.log('Socket.io connected');
+      setIsSocketConnected(true);
+    });
+
+    socketRef.current.on('disconnect', () => {
+      console.log('Socket.io disconnected');
+      setIsSocketConnected(false);
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+    };
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(captureAndDetect, 500); // Process every 500ms
@@ -131,8 +161,12 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
         <h2 className="text-2xl font-semibold text-gray-800 dark:text-white">
           Video Stream
         </h2>
-        <div className="text-sm text-gray-600 dark:text-gray-400">
-          FPS: {fps} | Objects: {detectedObjects.length}
+        <div className="flex items-center gap-4 text-sm text-gray-600 dark:text-gray-400">
+          <div className="flex items-center gap-2">
+            <span className={`w-2 h-2 rounded-full ${isSocketConnected ? 'bg-green-500' : 'bg-red-500'}`}></span>
+            <span>{isSocketConnected ? 'Connected' : 'Disconnected'}</span>
+          </div>
+          <div>FPS: {fps} | Objects: {detectedObjects.length}</div>
         </div>
       </div>
       
