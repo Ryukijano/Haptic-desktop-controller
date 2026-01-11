@@ -1,0 +1,15 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/**": {
+      "maxDuration": 30,
+      "memory": 1024
+    }
+  },
+  "env": [
+    {
+      "key": "GEMINI_API_KEY",
+      "description": "Google Gemini API Key for object detection and gesture interpretation"
+    }
+  ]
+}
