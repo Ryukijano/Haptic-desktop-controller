@@ -8,7 +8,7 @@ Supports macOS and Linux
 import logging
 import platform
 import sys
-from typing import Optional
+import time
 
 try:
     import socketio
@@ -133,7 +133,6 @@ class SocketIOClient:
             except Exception as e:
                 logger.error(f"Connection error: {e}")
                 logger.info(f"Retrying in {retry_delay} seconds...")
-                import time
                 time.sleep(retry_delay)
 
 

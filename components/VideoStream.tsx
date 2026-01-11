@@ -60,7 +60,6 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
               // Send gesture to desktop daemon via Socket.io
               if (socketRef.current?.connected) {
                 socketRef.current.emit('gesture', {
-                  type: 'gesture',
                   gesture: gesture,
                   timestamp: Date.now()
                 });
