@@ -1,39 +1,45 @@
 # Haptic Desktop Controller
 
-Transform everyday objects on your desk into intuitive controls for your computer. Point your phone camera at objects like coffee mugs, notebooks, or pens, and use their physical movements to control volume, scroll, switch tabs, and more.
+A gesture-based desktop control system using **Google Gemini AI** for real-time object detection and motion tracking. Control your macOS/Linux desktop through hand gestures captured via webcam.
+
+> **Note**: This repository contains two implementations:
+> - **Root directory** (recommended): Simple webcam-based gesture control with Socket.io
+> - **web-app directory**: Advanced mobile-first implementation with more features
+> 
+> This guide focuses on the root directory implementation for quick setup and testing.
 
 ## 🎯 Overview
 
-Haptic Desktop Controller uses computer vision (powered by Google Gemini) to detect objects in your workspace and track their movements in real-time. Physical gestures with these objects are translated into desktop commands via a WebSocket connection to a Python daemon running on your computer.
+Haptic Desktop Controller uses computer vision (powered by Google Gemini) to detect objects in your workspace and track their movements in real-time. Physical gestures with these objects are translated into desktop commands via a Socket.io connection to a Python daemon running on your computer.
 
 ### System Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                     MOBILE (Web App)                            │
+│                    WEB APP (Next.js)                            │
 │  ┌──────────────────┐         ┌──────────────────┐             │
-│  │  Camera Stream   │────────▶│ Real-time Feed   │             │
+│  │  Webcam Stream   │────────▶│ Real-time Feed   │             │
 │  └──────────────────┘         └──────────────────┘             │
 │           ▼                                                     │
 │  ┌──────────────────┐         ┌──────────────────┐             │
-│  │ Object Detection │────────▶│ Motion Tracking  │             │
-│  │  (Gemini AI)     │         │  (Frame-to-Frame)│             │
+│  │ Object Detection │────────▶│ Gesture Tracking │             │
+│  │  (Gemini API)    │         │  (Client-side)   │             │
 │  └──────────────────┘         └──────────────────┘             │
 └─────────────────────────────────────────────────────────────────┘
                                  ▼
             ┌────────────────────────────────────┐
-            │         WebSocket Server          │
-            │      (Real-time Commands)         │
+            │     Socket.io Server (Node.js)    │
+            │      (Real-time Events)           │
             └────────────────────────────────────┘
                                  ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                   DESKTOP (Python Daemon)                       │
+│                  DESKTOP (Python Daemon)                        │
 │  ┌──────────────────┐         ┌──────────────────┐             │
-│  │  WebSocket Client│◀────────│   pynput         │             │
+│  │ Socket.io Client │◀────────│   pynput         │             │
 │  └──────────────────┘         └──────────────────┘             │
 │           ▼                                                     │
 │  ┌──────────────────────────────────────────────┐              │
-│  │   System Commands (Volume/Scroll/Tabs/etc)   │              │
+│  │   System Commands (Volume/Scroll/etc)        │              │
 │  └──────────────────────────────────────────────┘              │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -43,60 +49,62 @@ Haptic Desktop Controller uses computer vision (powered by Google Gemini) to det
 ### Prerequisites
 
 - Node.js 18+ (for web app)
-- Python 3.9+ (for desktop daemon)
-- A smartphone or tablet with a camera
-- Google Gemini API key (optional, demo mode available)
+- Python 3.8+ (for desktop daemon)
+- A device with a webcam (laptop or USB webcam)
+- Google Gemini API key ([Get one here](https://makersuite.google.com/app/apikey))
 
-### 1. Install Web App
+### 1. Install Dependencies
 
 ```bash
-cd web-app
+# Install Node.js dependencies
 npm install
 ```
 
 ### 2. Configure Environment
 
 ```bash
-cp .env.example .env.local
+# Copy the example environment file
+cp .env.local.example .env.local
+
 # Edit .env.local and add your GEMINI_API_KEY
+# GEMINI_API_KEY=your_actual_api_key_here
 ```
 
-### 3. Start the Web Server
+### 3. Start the Web Server with Socket.io
 
 ```bash
-# Standard Next.js development server
-npm run dev
-
-# OR with WebSocket support
+# Development mode with WebSocket support
 npm run dev:socket
 ```
 
-### 4. Install Desktop Daemon
+The app will be available at `http://localhost:3000`
+
+### 4. Install Desktop Daemon (in a new terminal)
 
 ```bash
-cd desktop-daemon
+cd daemon
+
+# The start script will create a virtual environment and install dependencies
+./start.sh
+
+# Or manually:
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+python3 haptic_daemon.py
 ```
 
-### 5. Run Desktop Daemon
+### 5. Use the Application
 
-```bash
-python desktop_daemon.py --host localhost --port 3000
-```
-
-### 6. Open the Web App
-
-Open http://localhost:3000 on your mobile device (must be on same network) or use ngrok for remote access.
-
-## 📱 Usage
-
-1. **Setup Tab**: Point your phone camera at your desk and tap "Detect Objects"
-2. **Configure Mappings**: Assign actions to each detected object
-   - Coffee mug rotation → Volume control
-   - Notebook slide → Scroll
-   - Pen rotation → Brightness
-3. **Control Tab**: Start tracking and interact with your objects
-4. The desktop daemon will execute the corresponding commands
+1. Open `http://localhost:3000` in your browser
+2. Allow webcam access when prompted
+3. Register objects to track (e.g., "hand", "finger", "pen")
+4. Perform gestures in front of the camera:
+   - **Hand at top** → Scroll Up
+   - **Hand at bottom** → Scroll Down
+   - **Hand on left** → Volume Down
+   - **Hand on right** → Volume Up
+5. The desktop daemon will execute the corresponding commands
 
 ## 🎮 Available Commands
 
@@ -116,39 +124,38 @@ Open http://localhost:3000 on your mobile device (must be on same network) or us
 - **Framework**: Next.js 15 with App Router
 - **Language**: TypeScript
 - **Styling**: Tailwind CSS
-- **State Management**: Zustand
+- **Webcam**: react-webcam
 - **Real-time**: Socket.io
-- **AI**: Google Gemini API
+- **AI**: Google Gemini API (Gemini 1.5 Flash)
 
 ### Desktop Daemon (Python)
 - **OS Control**: pynput
-- **Communication**: websockets
-- **Platforms**: Windows, macOS, Linux
+- **Communication**: python-socketio[client]
+- **Platforms**: macOS, Linux
 
 ## 📁 Project Structure
 
 ```
-├── web-app/
-│   ├── src/
-│   │   ├── app/
-│   │   │   ├── api/
-│   │   │   │   ├── detect-objects/   # Gemini object detection
-│   │   │   │   └── interpret-gesture/ # Gesture interpretation
-│   │   │   ├── page.tsx              # Main controller UI
-│   │   │   └── globals.css
-│   │   ├── components/
-│   │   │   ├── ObjectRegistration.tsx
-│   │   │   └── MappingConfigurator.tsx
-│   │   ├── lib/
-│   │   │   ├── motionTracker.ts      # Motion detection
-│   │   │   └── store.ts              # Zustand store
-│   │   └── types/
-│   │       └── index.ts
-│   ├── server.js                      # Custom server with Socket.io
-│   └── vercel.json
-├── desktop-daemon/
-│   ├── desktop_daemon.py             # Python daemon
-│   └── requirements.txt
+├── app/
+│   ├── api/
+│   │   └── detect-objects/
+│   │       └── route.ts           # Gemini object detection API
+│   ├── globals.css                # Global styles
+│   ├── layout.tsx                 # Root layout
+│   └── page.tsx                   # Main controller UI
+├── components/
+│   ├── VideoStream.tsx            # Webcam streaming & gesture detection
+│   ├── ObjectRegistration.tsx     # Object registration UI
+│   └── GestureDisplay.tsx         # Real-time gesture display
+├── daemon/
+│   ├── haptic_daemon.py           # Python Socket.io daemon
+│   ├── requirements.txt           # Python dependencies
+│   └── start.sh                   # Daemon startup script
+├── lib/
+│   └── useWebSocket.ts            # WebSocket hook (legacy)
+├── server.js                      # Custom Next.js server with Socket.io
+├── package.json                   # Node.js dependencies
+├── tsconfig.json                  # TypeScript configuration
 └── README.md
 ```
 
@@ -197,275 +204,54 @@ MIT License
 ## 🤝 Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
-A gesture-based desktop control system using **Gemini Robotics-ER 1.5** for real-time object detection and motion tracking. Control your macOS/Linux desktop through hand gestures captured via webcam.
 
-## Features
+## 💡 Tips
 
-### 🎥 Next.js 15 Mobile-Optimized App
-- **Video Streaming**: Real-time webcam feed with motion tracking overlay
-- **Object Registration UI**: Register custom objects for tracking (hand, finger, pen, etc.)
-- **Real-time Gesture Interpretation**: Visual feedback of detected gestures
-- **Responsive Design**: Works on desktop and mobile devices
+- For better gesture detection, ensure good lighting in your environment
+- Position your hand clearly in view of the webcam
+- The Gemini API may take a moment to process images, so gestures are detected every 500ms
+- Check the connection status indicator (green dot) to ensure Socket.io is connected
+- The daemon must be running for gestures to control your system
 
-### 🤖 Gemini Robotics Integration
-- **AI-Powered Detection**: Uses Google's Gemini 1.5 Flash model
-- **Robotics Prompt Engineering**: Specialized prompts for gesture recognition
-- **Normalized 2D Coordinates**: Precise object location tracking
-- **Base64 Image Processing**: Efficient image encoding for API calls
-
-### 🖥️ Python Daemon (macOS/Linux)
-- **WebSocket Client**: Real-time communication with the web app
-- **pynput Integration**: Native OS control for volume and scrolling
-- **Cross-Platform**: Supports both macOS and Linux
-- **System Commands**: Execute OS-specific commands for volume control
-
-## Architecture
-
-```
-┌─────────────────┐      ┌──────────────────┐      ┌─────────────────┐
-│   Next.js App   │─────▶│  Gemini API      │      │  Python Daemon  │
-│   (Frontend)    │      │  /api/detect-    │      │  (OS Control)   │
-│                 │      │   objects        │      │                 │
-│ - Video Stream  │      │                  │      │ - WebSocket     │
-│ - UI Controls   │      │ - Image Analysis │      │ - pynput        │
-│ - Gesture View  │      │ - JSON Response  │      │ - Volume/Scroll │
-└─────────────────┘      └──────────────────┘      └─────────────────┘
-         │                                                  ▲
-         │                    WebSocket                     │
-         └──────────────────────────────────────────────────┘
-```
-
-## Prerequisites
-
-- **Node.js** 18+ (for Next.js app)
-- **Python 3.8+** (for daemon)
-- **Google Gemini API Key** ([Get one here](https://makersuite.google.com/app/apikey))
-- **Webcam** (for gesture capture)
-- **macOS or Linux** (for daemon OS controls)
-
-## Installation
-
-### 1. Clone the Repository
-
-```bash
-git clone https://github.com/Ryukijano/Haptic-desktop-controller.git
-cd Haptic-desktop-controller
-```
-
-### 2. Set Up Next.js App
-
-```bash
-# Install dependencies
-npm install
-
-# Create environment file
-cp .env.local.example .env.local
-
-# Edit .env.local and add your Gemini API key
-# GEMINI_API_KEY=your_actual_api_key_here
-```
-
-### 3. Set Up Python Daemon
-
-```bash
-cd daemon
-
-# Create virtual environment
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-## Usage
-
-### Running the Next.js App
-
-```bash
-# Development mode
-npm run dev
-
-# Production build
-npm run build
-npm start
-```
-
-The app will be available at `http://localhost:3000`
-
-### Running the Python Daemon
-
-```bash
-cd daemon
-./start.sh
-
-# Or manually:
-source venv/bin/activate
-python3 haptic_daemon.py
-```
-
-**Note**: The daemon will attempt to connect to `ws://localhost:3000/ws` by default.
-
-### Using the Application
-
-1. **Open the web app** in your browser
-2. **Allow webcam access** when prompted
-3. **Register objects** you want to track (e.g., "hand", "finger")
-4. **Perform gestures** in front of the camera:
-   - **Hand at top** → Scroll Up
-   - **Hand at bottom** → Scroll Down
-   - **Hand on left** → Volume Down
-   - **Hand on right** → Volume Up
-5. The **real-time gesture display** shows the current detected gesture
-
-## API Endpoints
-
-### POST `/api/detect-objects`
-
-Detects objects in an image using Gemini Vision API.
-
-**Request Body:**
-```json
-{
-  "image": "data:image/jpeg;base64,/9j/4AAQ...",
-  "registeredObjects": ["hand", "finger"]
-}
-```
-
-**Response:**
-```json
-{
-  "objects": [
-    {
-      "label": "hand",
-      "x": 0.5,
-      "y": 0.3,
-      "confidence": 0.95
-    }
-  ]
-}
-```
-
-## Gesture Mapping
-
-| Hand Position | Gesture | OS Action |
-|--------------|---------|-----------|
-| Top (y < 0.3) | `scroll_up` | Scroll page up |
-| Bottom (y > 0.7) | `scroll_down` | Scroll page down |
-| Left (x < 0.3) | `volume_down` | Decrease volume 5% |
-| Right (x > 0.7) | `volume_up` | Increase volume 5% |
-
-## Project Structure
-
-```
-haptic-desktop-controller/
-├── app/
-│   ├── api/
-│   │   └── detect-objects/
-│   │       └── route.ts          # Gemini API integration
-│   ├── globals.css                # Global styles
-│   ├── layout.tsx                 # Root layout
-│   └── page.tsx                   # Home page
-├── components/
-│   ├── VideoStream.tsx            # Video streaming component
-│   ├── ObjectRegistration.tsx     # Object registration UI
-│   └── GestureDisplay.tsx         # Gesture visualization
-├── daemon/
-│   ├── haptic_daemon.py           # Python WebSocket client
-│   ├── requirements.txt           # Python dependencies
-│   └── start.sh                   # Daemon startup script
-├── lib/                           # Utility functions (future)
-├── next.config.ts                 # Next.js configuration
-├── tailwind.config.ts             # Tailwind CSS config
-├── tsconfig.json                  # TypeScript configuration
-└── package.json                   # Node.js dependencies
-```
-
-## Environment Variables
-
-Create a `.env.local` file in the root directory:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-## Troubleshooting
+## 🔍 Troubleshooting
 
 ### Webcam not working
 - Ensure browser has webcam permissions
 - Try a different browser (Chrome/Firefox recommended)
 - Check if another application is using the webcam
 
+### Socket.io connection issues
+- Verify the server is running with `npm run dev:socket`
+- Check that port 3000 is not blocked by firewall
+- Look for the green connection indicator in the UI
+
 ### Python daemon connection issues
-- Verify the WebSocket server is running (Next.js app must be running)
-- Check firewall settings
-- Ensure port 3000 is not blocked
+- Ensure the daemon is running in a separate terminal
+- Check that it's connecting to the correct URL (http://localhost:3000)
+- Look for "Connected to Socket.io server" message in daemon logs
 
 ### Volume control not working
 - **macOS**: Uses `osascript` (built-in)
 - **Linux**: Requires `amixer` (usually pre-installed)
   ```bash
-  sudo apt-get install alsa-utils  # If missing
+  sudo apt-get install alsa-utils  # If missing on Linux
   ```
 
 ### Gemini API errors
-- Verify your API key is correct
-- Check API quota limits
-- Ensure you have billing enabled (if required)
+- Verify your API key is correct in `.env.local`
+- Check API quota limits at [Google AI Studio](https://makersuite.google.com/)
+- Ensure you have billing enabled if required
 
-## Development
+## 🚀 Future Enhancements
 
-### Running in Development Mode
-
-```bash
-# Terminal 1: Next.js app
-npm run dev
-
-# Terminal 2: Python daemon
-cd daemon
-./start.sh --debug
-```
-
-### Linting
-
-```bash
-npm run lint
-```
-
-## Technologies Used
-
-- **Next.js 15**: React framework with App Router
-- **TypeScript**: Type-safe development
-- **Tailwind CSS**: Utility-first CSS framework
-- **React Webcam**: Webcam integration for React
-- **Google Gemini AI**: Vision and language model
-- **Python**: System control daemon
-- **websockets**: WebSocket client library
-- **pynput**: Cross-platform input control
-
-## Future Enhancements
-
-- [ ] WebSocket server implementation in Next.js
 - [ ] More gesture types (swipe, pinch, rotation)
 - [ ] Custom gesture training
-- [ ] Multi-hand tracking
+- [ ] Multi-object tracking
 - [ ] Gesture macros and shortcuts
 - [ ] Windows support for daemon
 - [ ] Mobile app version
-- [ ] Voice command integration
-
-## License
-
-ISC
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## Support
-
-For issues and questions, please open an issue on GitHub.
+- [ ] Configuration UI for gesture mappings
 
 ---
 
-Built with ❤️ using Next.js and Gemini AI
+Built with ❤️ using Next.js, Socket.io, and Google Gemini AI
