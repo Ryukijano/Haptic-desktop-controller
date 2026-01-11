@@ -59,9 +59,6 @@ class GestureController:
     def _scroll_up(self) -> None:
         """Scroll up"""
         logger.info("Scrolling up")
-        # Simulate mouse wheel scroll up
-        from pynput.mouse import Button
-        import time
         # Mouse scroll simulation (positive values scroll up)
         self.mouse.scroll(0, 3)
     

@@ -25,41 +25,48 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
   const captureAndDetect = useCallback(async () => {
     if (!webcamRef.current || isProcessing) return;
 
-    const imageSrc = webcamRef.current.getScreenshot();
-    if (!imageSrc) return;
-
-    setIsProcessing(true);
-    const startTime = performance.now();
-
     try {
-      const response = await fetch("/api/detect-objects", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          image: imageSrc,
-          registeredObjects 
-        }),
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setDetectedObjects(data.objects || []);
-        
-        // Interpret gestures based on object positions
-        if (data.objects && data.objects.length > 0) {
-          const gesture = interpretGesture(data.objects);
-          if (gesture) {
-            onGestureDetected(gesture);
-          }
-        }
+      const imageSrc = webcamRef.current.getScreenshot();
+      if (!imageSrc) {
+        console.warn("Failed to capture screenshot - webcam may not be ready");
+        return;
       }
 
-      const endTime = performance.now();
-      setFps(Math.round(1000 / (endTime - startTime)));
+      setIsProcessing(true);
+      const startTime = performance.now();
+
+      try {
+        const response = await fetch("/api/detect-objects", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            image: imageSrc,
+            registeredObjects 
+          }),
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setDetectedObjects(data.objects || []);
+          
+          // Interpret gestures based on object positions
+          if (data.objects && data.objects.length > 0) {
+            const gesture = interpretGesture(data.objects);
+            if (gesture) {
+              onGestureDetected(gesture);
+            }
+          }
+        }
+
+        const endTime = performance.now();
+        setFps(Math.round(1000 / (endTime - startTime)));
+      } catch (error) {
+        console.error("Detection error:", error);
+      } finally {
+        setIsProcessing(false);
+      }
     } catch (error) {
-      console.error("Detection error:", error);
-    } finally {
-      setIsProcessing(false);
+      console.error("Webcam capture error:", error);
     }
   }, [isProcessing, registeredObjects, onGestureDetected]);
 
