@@ -54,6 +54,8 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
             const gesture = interpretGesture(data.objects);
             if (gesture) {
               onGestureDetected(gesture);
+              // Send gesture to daemon via WebSocket
+              sendGestureToDaemon(gesture);
             }
           }
         }
@@ -69,6 +71,18 @@ export default function VideoStream({ onGestureDetected, registeredObjects }: Vi
       console.error("Webcam capture error:", error);
     }
   }, [isProcessing, registeredObjects, onGestureDetected]);
+
+  const sendGestureToDaemon = async (gesture: string) => {
+    try {
+      await fetch("/api/send-gesture", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ gesture }),
+      });
+    } catch (error) {
+      console.error("Failed to send gesture to daemon:", error);
+    }
+  };
 
   const interpretGesture = (objects: DetectedObject[]): string => {
     // Simple gesture interpretation logic
